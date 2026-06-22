@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { Bookmark } from "../types";
 import TagBadge from "../components/TagBadge";
+import { cleanText } from "../clean";
 
 export default function DetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -48,7 +49,7 @@ export default function DetailPage() {
           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
       )}
 
-      <h1 className="text-xl font-bold text-gray-900 dark:text-white">{bookmark.title}</h1>
+      <h1 className="text-xl font-bold text-gray-900 dark:text-white">{cleanText(bookmark.title)}</h1>
 
       <div className="flex items-center gap-2 text-sm text-gray-500">
         {bookmark.source && <span>{bookmark.source}</span>}
@@ -61,14 +62,14 @@ export default function DetailPage() {
 
       {bookmark.ai_summary && (
         <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-sm text-gray-700 dark:text-gray-300">
-          <strong>AI 摘要：</strong>{bookmark.ai_summary}
+          <strong>AI 摘要：</strong>{cleanText(bookmark.ai_summary)}
         </div>
       )}
 
-      {bookmark.description && <p className="text-sm text-gray-600 dark:text-gray-400">{bookmark.description}</p>}
+      {bookmark.description && <p className="text-sm text-gray-600 dark:text-gray-400">{cleanText(bookmark.description)}</p>}
 
       {bookmark.type === "note" && bookmark.content && (
-        <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">{bookmark.content}</div>
+        <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">{cleanText(bookmark.content)}</div>
       )}
 
       {bookmark.tags.length > 0 && (

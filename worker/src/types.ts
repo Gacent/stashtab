@@ -26,4 +26,6 @@ export interface BookmarkWithTags extends Bookmark {
 
 export interface Env {
   DB: D1Database;
+  SENSENOVA_API_KEY?: string;
+  APP_PASSWORD?: string;
 }

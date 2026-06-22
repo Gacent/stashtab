@@ -1,26 +1,22 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 
-const API_KEY_KEY = "link-collector-api-key";
-
 export default function SettingsPage() {
-  const [apiKey, setApiKey] = useState(localStorage.getItem(API_KEY_KEY) || "");
-  const [saved, setSaved] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [darkMode, setDarkMode] = useState(document.documentElement.classList.contains("dark"));
-
-  function saveApiKey() {
-    if (apiKey.trim()) localStorage.setItem(API_KEY_KEY, apiKey.trim());
-    else localStorage.removeItem(API_KEY_KEY);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }
+  const navigate = useNavigate();
 
   function toggleDarkMode() {
     const isDark = !darkMode;
     setDarkMode(isDark);
     document.documentElement.classList.toggle("dark", isDark);
     localStorage.setItem("theme", isDark ? "dark" : "light");
+  }
+
+  function handleLogout() {
+    localStorage.removeItem("auth_token");
+    navigate("/login");
   }
 
   async function handleExport() {
@@ -48,14 +44,6 @@ export default function SettingsPage() {
       <h2 className="text-lg font-bold text-gray-900 dark:text-white">设置</h2>
 
       <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
-        <h3 className="font-semibold text-sm text-gray-900 dark:text-white">AI 配置</h3>
-        <p className="text-xs text-gray-500">配置 SenseNova API Key 后，保存时会自动提取摘要和推荐标签。可在 https://platform.sensenova.cn 获取免费 Key。</p>
-        <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="输入你的 SenseNova API Key" type="password"
-          className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-gray-50 dark:bg-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400" />
-        <button onClick={saveApiKey} className="py-1.5 px-4 bg-blue-500 text-white rounded-lg text-sm">{saved ? "✓ 已保存" : "保存"}</button>
-      </section>
-
-      <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
         <h3 className="font-semibold text-sm text-gray-900 dark:text-white">显示</h3>
         <label className="flex items-center justify-between">
           <span className="text-sm text-gray-700 dark:text-gray-300">深色模式</span>
@@ -71,6 +59,14 @@ export default function SettingsPage() {
         <button onClick={handleExport} disabled={exporting}
           className="py-1.5 px-4 bg-gray-500 text-white rounded-lg text-sm disabled:opacity-50">
           {exporting ? "导出中..." : "导出备份（JSON）"}
+        </button>
+      </section>
+
+      <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+        <h3 className="font-semibold text-sm text-gray-900 dark:text-white">账号</h3>
+        <button onClick={handleLogout}
+          className="py-1.5 px-4 bg-red-500 text-white rounded-lg text-sm">
+          退出登录
         </button>
       </section>
 

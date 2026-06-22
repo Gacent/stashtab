@@ -10,11 +10,11 @@ aiExtractRouter.post("/", async (c) => {
     type: "link" | "note";
     content: string;
     title?: string;
-    apiKey: string;
   }>();
 
-  if (!body.apiKey) {
-    return c.json({ error: "API Key is required" }, 400);
+  const apiKey = c.env.SENSENOVA_API_KEY;
+  if (!apiKey) {
+    return c.json({ tags: [], _fallback: true, _error: "AI 未配置" });
   }
 
   if (!body.content) {
@@ -26,10 +26,10 @@ aiExtractRouter.post("/", async (c) => {
 
     if (body.type === "link") {
       const input = `标题：${body.title || ""}\n内容：${body.content}`;
-      const text = await callSenseNova(body.apiKey, LINK_EXTRACT_PROMPT, input);
+      const text = await callSenseNova(apiKey, LINK_EXTRACT_PROMPT, input);
       result = JSON.parse(text);
     } else {
-      const text = await callSenseNova(body.apiKey, NOTE_EXTRACT_PROMPT, body.content);
+      const text = await callSenseNova(apiKey, NOTE_EXTRACT_PROMPT, body.content);
       result = JSON.parse(text);
     }
 
@@ -37,17 +37,9 @@ aiExtractRouter.post("/", async (c) => {
   } catch (e) {
     // Graceful fallback - if AI fails, return basic info
     if (body.type === "link") {
-      return c.json({
-        summary: "",
-        tags: [],
-        _fallback: true,
-      });
+      return c.json({ summary: "", tags: [], _fallback: true });
     } else {
-      return c.json({
-        title: body.content.slice(0, 30),
-        tags: [],
-        _fallback: true,
-      });
+      return c.json({ title: body.content.slice(0, 30), tags: [], _fallback: true });
     }
   }
 });

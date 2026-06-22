@@ -21,8 +21,8 @@ fetchMetaRouter.post("/", async (c) => {
     const html = await response.text();
 
     // Extract meta tags
-    const title = extractMeta(html, "og:title") || extractMeta(html, "twitter:title") || extractTitle(html) || url;
-    const description = extractMeta(html, "og:description") || extractMeta(html, "twitter:description") || extractMeta(html, "description") || "";
+    const title = decodeHtmlEntities(extractMeta(html, "og:title") || extractMeta(html, "twitter:title") || extractTitle(html) || url);
+    const description = decodeHtmlEntities(extractMeta(html, "og:description") || extractMeta(html, "twitter:description") || extractMeta(html, "description") || "");
     const image = extractMeta(html, "og:image") || extractMeta(html, "twitter:image") || "";
     const hostname = new URL(url).hostname;
 
@@ -67,10 +67,33 @@ function extractTitle(html: string): string | null {
 
 function extractTextContent(html: string): string {
   // Remove scripts, styles, and tags
-  return html
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return sanitizeText(
+    html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
+}
+
+function sanitizeText(text: string): string {
+  // Remove control characters except newline, tab, carriage return
+  return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F\u200B-\u200F\u2028-\u202E\uFEFF]/g, "").trim();
+}
+
+function decodeHtmlEntities(text: string): string {
+  return sanitizeText(
+    text
+      .replace(/&quot;/g, '"')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&#39;/g, "'")
+      .replace(/&#x27;/g, "'")
+      .replace(/&#x2F;/g, "/")
+      .replace(/&#96;/g, "`")
+      .replace(/&#x60;/g, "`")
+      .replace(/&nbsp;/g, " ")
+  );
 }

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Bookmark } from "../types";
 import TagBadge from "./TagBadge";
+import { cleanText } from "../clean";
 
 interface BookmarkCardProps {
   bookmark: Bookmark;
@@ -26,11 +27,11 @@ export default function BookmarkCard({ bookmark }: BookmarkCardProps) {
       <div className="p-3 space-y-2">
         <div className="flex items-start gap-2">
           <span className="text-xs mt-0.5">{isNote ? "📝" : "🔗"}</span>
-          <h3 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-2 flex-1">{bookmark.title}</h3>
+          <h3 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-2 flex-1">{cleanText(bookmark.title)}</h3>
         </div>
 
         {(bookmark.ai_summary || bookmark.description) && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{bookmark.ai_summary || bookmark.description}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{cleanText(bookmark.ai_summary || bookmark.description)}</p>
         )}
 
         <div className="flex items-center gap-2 text-xs text-gray-400">
