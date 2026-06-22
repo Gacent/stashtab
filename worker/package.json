@@ -1,0 +1,19 @@
+{
+  "name": "link-collector-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 execute link-collector-db --file=schema.sql",
+    "db:migrate:remote": "wrangler d1 execute link-collector-db --file=schema.sql --remote"
+  },
+  "dependencies": {
+    "hono": "^4.7.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250201.0",
+    "wrangler": "^3.100.0",
+    "typescript": "^5.7.0"
+  }
+}
