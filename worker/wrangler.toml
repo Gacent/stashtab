@@ -6,9 +6,4 @@ compatibility_date = "2025-01-01"
 binding = "DB"
 database_name = "link-collector-db"
 database_id = "link-collector-db"
-
-[[d1_databases]]
-binding = "DB"
-database_name = "link-collector-db"
-database_id = "link-collector-db"
 preview_database_id = "link-collector-db"
