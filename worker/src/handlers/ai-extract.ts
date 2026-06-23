@@ -22,12 +22,18 @@ aiExtractRouter.post("/", async (c) => {
   }
 
   try {
-    let result: { summary?: string; title?: string; tags: string[] };
+    let result: { title?: string; summary?: string; tags: string[]; type?: string; _fallback?: boolean };
 
     if (body.type === "link") {
       const input = `标题：${body.title || ""}\n内容：${body.content}`;
       const text = await callSenseNova(apiKey, LINK_EXTRACT_PROMPT, input);
-      result = JSON.parse(text);
+      const parsed = JSON.parse(text);
+      result = {
+        title: parsed.title || "",
+        summary: parsed.summary || "",
+        tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+        type: parsed.type || "article",
+      };
     } else {
       const text = await callSenseNova(apiKey, NOTE_EXTRACT_PROMPT, body.content);
       result = JSON.parse(text);
@@ -37,7 +43,7 @@ aiExtractRouter.post("/", async (c) => {
   } catch (e) {
     // Graceful fallback - if AI fails, return basic info
     if (body.type === "link") {
-      return c.json({ summary: "", tags: [], _fallback: true });
+      return c.json({ title: "", summary: "", tags: [], _fallback: true });
     } else {
       return c.json({ title: body.content.slice(0, 30), tags: [], _fallback: true });
     }
