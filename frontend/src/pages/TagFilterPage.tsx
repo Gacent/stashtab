@@ -13,10 +13,14 @@ export default function TagFilterPage() {
 
   useEffect(() => {
     if (!tagName) return;
+    let cancelled = false;
+    setLoading(true);
     api.listBookmarks({ tag: tagName, limit: 50 }).then((res) => {
+      if (cancelled) return;
       setBookmarks(res.bookmarks);
       setLoading(false);
     });
+    return () => { cancelled = true; };
   }, [tagName]);
 
   return (

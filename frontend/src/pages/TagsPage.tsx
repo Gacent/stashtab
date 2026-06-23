@@ -12,13 +12,7 @@ export default function TagsPage() {
   const restored = useRef(false);
 
   useEffect(() => {
-    if (!getPageCache(CACHE_KEY)) {
-      api.listTags().then((data) => {
-        setTags(data);
-        setPageCache(CACHE_KEY, data);
-        setLoading(false);
-      });
-    } else {
+    if (getPageCache(CACHE_KEY)) {
       setLoading(false);
       if (!restored.current) {
         restored.current = true;
@@ -26,8 +20,18 @@ export default function TagsPage() {
           window.scrollTo(0, getScrollPosition(CACHE_KEY));
         });
       }
+      return () => saveScrollPosition(CACHE_KEY);
     }
-    return () => saveScrollPosition(CACHE_KEY);
+
+    let cancelled = false;
+    api.listTags().then((data) => {
+      if (cancelled) return;
+      setTags(data);
+      setPageCache(CACHE_KEY, data);
+      setLoading(false);
+    });
+
+    return () => { cancelled = true; saveScrollPosition(CACHE_KEY); };
   }, []);
 
   async function handleRefresh() {

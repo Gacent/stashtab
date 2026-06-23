@@ -1,14 +1,17 @@
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useState } from "react";
 import { api } from "../api";
 import { Bookmark } from "../types";
 import TagBadge from "../components/TagBadge";
 import { cleanText } from "../clean";
+import { clearPageCache } from "../pageCache";
 
 export default function DetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const bookmark = (location.state as { bookmark?: Bookmark } | null)?.bookmark ?? null;
+  const [deleting, setDeleting] = useState(false);
 
   if (!bookmark) {
     return (
@@ -21,8 +24,14 @@ export default function DetailPage() {
 
   async function handleDelete() {
     if (!confirm("确定删除？")) return;
-    await api.deleteBookmark(bookmark!.id);
-    navigate("/");
+    setDeleting(true);
+    try {
+      await api.deleteBookmark(bookmark!.id);
+      clearPageCache("home");
+      navigate("/");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -67,8 +76,15 @@ export default function DetailPage() {
             阅读原文
           </a>
         )}
-        <button onClick={handleDelete} className="py-2.5 px-5 text-sm text-[var(--color-error)] hover:opacity-80 transition-opacity">
-          删除
+        <button onClick={handleDelete} disabled={deleting}
+          className="py-2.5 px-5 text-sm text-[var(--color-error)] hover:opacity-80 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed btn-press">
+          {deleting ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-3 h-3 border-2 border-[var(--color-error)]/30 
+                border-t-[var(--color-error)] rounded-full animate-spin" />
+              删除中...
+            </span>
+          ) : "删除"}
         </button>
       </div>
     </div>
