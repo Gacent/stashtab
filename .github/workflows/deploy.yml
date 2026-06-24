@@ -26,7 +26,8 @@ jobs:
         run: cd frontend && npm install && npm run build -- --mode prod
 
       - name: Deploy Pages
-        run: cd frontend && npx wrangler pages deploy dist --project-name=stashtab --skip-build
+        run: cd frontend && npx wrangler pages deploy dist --project-name=stashtab
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          C3_DISABLE_DETECTION: true
