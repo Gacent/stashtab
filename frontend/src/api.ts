@@ -1,6 +1,11 @@
 import { Bookmark, BookmarkListResponse } from "./types";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "/api";
+// 优先用环境变量；没有则自动判断：本地开发用 /api（走 vite proxy），线上用 worker 地址
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  (location.hostname === "localhost" || location.hostname === "127.0.0.1"
+    ? "/api"
+    : "https://stashtab-worker.794733453.workers.dev/api");
 
 function getHeaders(): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
