@@ -1,6 +1,10 @@
 name = "link-collector-worker"
 main = "src/index.ts"
-compatibility_date = "2025-01-01"
+compatibility_date = "2026-06-23"
+compatibility_flags = ["nodejs_compat"]
+
+[browser]
+binding = "BROWSER"
 
 [vars]
 APP_PASSWORD = "your-password-here"
