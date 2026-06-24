@@ -23,9 +23,9 @@ cd stashtab
 cd worker && npm install
 cd ../frontend && npm install
 
-# Configure
-cp worker/wrangler.toml.example worker/wrangler.toml
-# Edit wrangler.toml with your keys
+# Configure (local dev)
+cp worker/.dev.vars.example worker/.dev.vars
+# Edit worker/.dev.vars with your keys
 
 # Run
 cd worker && npm run dev  # http://localhost:8787

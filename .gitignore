@@ -4,7 +4,6 @@ dist/
 *.local
 .wrangler/
 .dev-*.pid
-wrangler.toml
 
 .playwright-mcp/
 /docs/**
