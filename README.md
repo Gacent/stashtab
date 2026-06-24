@@ -1,8 +1,31 @@
+<div align="center">
+
 # LinkCollector · 个人收藏夹
+
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178c6)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19-61dafb)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-6-646cff)](https://vitejs.dev/)
+[![Cloudflare](https://img.shields.io/badge/Cloudflare-Workers-f38020)](https://workers.cloudflare.com/)
+[![Hono](https://img.shields.io/badge/Hono-4.7-e36002)](https://hono.dev/)
+[![Tailwind](https://img.shields.io/badge/Tailwind-4-06b6d4)](https://tailwindcss.com/)
+[![PWA](https://img.shields.io/badge/PWA-Supported-5a0fc7)](https://web.dev/progressive-web-apps/)
 
 > 粘贴链接 → AI自动提取标题/标签/摘要 → 保存到飞书多维表格
 
 一键收藏网页链接和随手笔记，AI 自动生成去标题党的标题、分类标签和内容摘要，存入飞书多维表格，支持全文搜索和标签筛选。
+
+[English](#english) · 简体中文
+
+</div>
+
+## 截图
+
+> 📸 截图待补充 — 欢迎 PR 添加
+
+| 首页 | 搜索 | 标签 | 详情 |
+|------|------|------|------|
+| ![首页](docs/screenshots/home.png) | ![搜索](docs/screenshots/search.png) | ![标签](docs/screenshots/tags.png) | ![详情](docs/screenshots/detail.png) |
 
 ## 功能
 
@@ -201,7 +224,7 @@ npx wrangler pages deploy dist --project-name=link-collector
 
 ## 许可证
 
-MIT
+[MIT](LICENSE)
 
 ## 相关项目
 
@@ -210,3 +233,45 @@ MIT
 - [Cloudflare Workers](https://workers.cloudflare.com/) - 边缘计算
 - [SenseNova](https://platform.sensenova.cn/) - 商汤大模型 API
 - [飞书开放平台](https://open.feishu.cn/) - 飞书 API
+
+---
+
+## English
+
+**LinkCollector** — A personal bookmark aggregator powered by AI.
+
+Paste a link → AI auto-extracts title, tags, and summary → Save to Feishu Base.
+
+### Features
+
+- Paste-to-collect with auto OG metadata extraction
+- AI-powered de-clickbait titles (≤10 chars) via SenseNova
+- Full-text search and tag filtering
+- PWA with offline support
+- Dark mode
+
+### Tech Stack
+
+- **Frontend**: React 19, Vite 6, Tailwind CSS 4, React Router 7
+- **Backend**: Cloudflare Workers, Hono
+- **AI**: SenseNova 6.7 Flash-Lite
+- **Database**: Feishu Base (飞书多维表格)
+- **Browser Rendering**: Cloudflare Browser Run (optional)
+
+### Quick Start
+
+```bash
+# Clone
+git clone https://github.com/Gacent/link-collector.git
+cd link-collector
+
+# Configure
+cp worker/wrangler.toml.example worker/wrangler.toml
+# Edit wrangler.toml with your keys
+
+# Dev
+cd worker && npm install && npm run dev
+cd frontend && npm install && npm run dev
+```
+
+See [README (Chinese)](#linkcollector--个人收藏夹) for full documentation.
