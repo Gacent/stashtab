@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { Env } from "../types";
+import puppeteer from "@cloudflare/puppeteer";
 
 export const fetchMetaRouter = new Hono<{ Bindings: Env }>();
 
@@ -68,31 +69,58 @@ fetchMetaRouter.post("/", async (c) => {
     const url = cleanUrl(rawUrl);
     const hostname = new URL(url).hostname;
 
+    console.log(`[fetch-meta] Processing: ${url}`);
+
     // Special handling for GitHub repo URLs — use GitHub API since direct fetch fails from CF Workers
     const githubResult = await tryGithubApi(url, hostname);
-    if (githubResult) return c.json(githubResult);
+    if (githubResult) {
+      console.log(`[fetch-meta] ✓ GitHub API: ${githubResult.title}`);
+      return c.json(githubResult);
+    }
 
     // Special handling for Bilibili — use Bilibili API since all bot UAs are blocked
     const bilibiliResult = await tryBilibiliApi(url, hostname);
-    if (bilibiliResult) return c.json(bilibiliResult);
+    if (bilibiliResult) {
+      console.log(`[fetch-meta] ✓ Bilibili API: ${bilibiliResult.title}`);
+      return c.json(bilibiliResult);
+    }
+
+// Toutiao handled by tryFetch with Googlebot UA
 
     const html = await tryFetch(url);
 
-    if (!html) {
-      return c.json(fallback(url, hostname));
+    if (html) {
+      const rawTitle = extractMeta(html, "og:title") || extractMeta(html, "twitter:title") || extractTitle(html) || "";
+      let decodedTitle = "";
+      try { decodedTitle = decode(decodeURIComponent(rawTitle)); } catch { decodedTitle = decode(rawTitle); }
+      const title = decodedTitle;
+      const description = decode(extractMeta(html, "og:description") || extractMeta(html, "twitter:description") || extractMeta(html, "description") || "");
+      const image = extractMeta(html, "og:image") || extractMeta(html, "twitter:image") || "";
+
+      // If we got meaningful OG tags, return them
+      if (title && title !== "视频号") {
+        console.log(`[fetch-meta] ✓ OG tags: ${title}`);
+        return c.json({
+          title: title || hostname,
+          description: description || `来自 ${hostname}`,
+          cover_image: image,
+          source: hostname,
+          content: extractContent(html).slice(0, 2000),
+        });
+      }
     }
 
-    const title = decode(decodeURIComponent(extractMeta(html, "og:title") || extractMeta(html, "twitter:title") || extractTitle(html) || ""));
-    const description = decode(extractMeta(html, "og:description") || extractMeta(html, "twitter:description") || extractMeta(html, "description") || "");
-    const image = extractMeta(html, "og:image") || extractMeta(html, "twitter:image") || "";
+    // Fallback to Browser Run for JS-rendered pages
+    console.log(`[fetch-meta] ⏳ Trying Browser Run...`);
+    const browserResult = await tryBrowserRender(c.env, url);
+    if (browserResult) {
+      console.log(`[fetch-meta] ✓ Browser Run: ${browserResult.title}`);
+      return c.json(browserResult);
+    }
 
-    return c.json({
-      title: title || hostname,
-      description: description || `来自 ${hostname}`,
-      cover_image: image,
-      source: hostname,
-      content: extractContent(html).slice(0, 2000),
-    });
+    // Final fallback
+    console.log(`[fetch-meta] ⚠ Fallback: ${hostname}`);
+    return c.json(fallback(url, hostname));
   } catch {
     try {
       return c.json(fallback(rawUrl, new URL(rawUrl).hostname));
@@ -184,16 +212,91 @@ async function tryBilibiliApi(url: string, hostname: string): Promise<ReturnType
   }
 }
 
+/** Try Browser Run for JS-rendered pages (WeChat Channels, etc.) */
+async function tryBrowserRender(env: Env, url: string): Promise<ReturnType<typeof fallback> | null> {
+  // Only use Browser Run if binding is available
+  if (!env.BROWSER) {
+    console.log(`[Browser Run] ⚠ BROWSER binding not available`);
+    return null;
+  }
+
+  try {
+    console.log(`[Browser Run] Launching browser...`);
+    const browser = await puppeteer.launch(env.BROWSER);
+    const page = await browser.newPage();
+
+    // Set mobile viewport
+    await page.setViewport({ width: 375, height: 812 });
+
+    // Navigate with timeout
+    console.log(`[Browser Run] Navigating to: ${url}`);
+    await page.goto(url, {
+      waitUntil: "networkidle0",
+      timeout: 15000,
+    });
+
+    // Wait a bit for dynamic content
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Extract metadata from the rendered page
+    const result = await page.evaluate(() => {
+      // @ts-ignore - This runs in browser context, not Worker
+      const getMeta = (prop: string): string | null => {
+        // @ts-ignore
+        const el = document.querySelector(`meta[property="${prop}"], meta[name="${prop}"]`);
+        return el?.getAttribute("content") || null;
+      };
+
+      return {
+        // @ts-ignore
+        title: getMeta("og:title") || document.title || null,
+        // @ts-ignore
+        description: getMeta("og:description") || document.querySelector('meta[name="description"]')?.getAttribute("content") || null,
+        image: getMeta("og:image") || null,
+        // @ts-ignore
+        content: document.body?.innerText?.slice(0, 2000) || null,
+      };
+    });
+
+    await browser.close();
+
+    // Only return if we got meaningful content
+    if (!result.title || result.title === "视频号") {
+      console.log(`[Browser Run] ⚠ No meaningful content extracted`);
+      return null;
+    }
+
+    console.log(`[Browser Run] ✓ Extracted: ${result.title}`);
+    const hostname = new URL(url).hostname;
+    return {
+      title: decode(result.title || ""),
+      description: decode(result.description || `来自 ${hostname}`),
+      cover_image: result.image || "",
+      source: hostname,
+      content: result.content || "",
+    };
+  } catch (error) {
+    console.log(`[Browser Run] ✗ Error: ${error}`);
+    return null;
+  }
+}
+
 /*
- * NOTE: Zhihu, Juejin, Douyin, Xiaohongshu adapters removed.
+ * NOTE: Zhihu, Juejin, Douyin, Xiaohongshu, Toutiao adapters removed.
  * These platforms require authentication/anti-bot signatures that cannot
- * be obtained in a CF Workers environment:
+ * be obtained in a CF Workers environment, OR ByteDance directly blocks
+ * CF Workers IP ranges (Toutiao):
  * - Zhihu: 403 without login cookies
  * - Juejin: requires msToken + a_bogus browser-computed signatures
  * - Douyin: iteminfo API returns status 11110 (closed/changed)
  * - Xiaohongshu: no public API, requires paid third-party service
+ * - Toutiao: byted_acrawler blocks CF Workers IPs regardless of UA
  *
- * These sites fall through to the OG tag extraction + fallback title.
+ * For Toutiao specifically: both www and mobile subdomains are blocked.
+ * Even Googlebot UA returns content from local curl but not from Workers.
+ * TryFetch handles whatever it can; Browser Run is the only reliable fallback.
+ * Known "accessible" vs "blocked" is inconsistent per-video (probably content
+ * moderation settings).
  */
 
 /** Strip tracking params and keep only meaningful ones */

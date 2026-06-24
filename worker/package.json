@@ -9,6 +9,7 @@
     "db:migrate:remote": "wrangler d1 execute link-collector-db --file=schema.sql --remote"
   },
   "dependencies": {
+    "@cloudflare/puppeteer": "^1.1.0",
     "hono": "^4.7.0"
   },
   "devDependencies": {

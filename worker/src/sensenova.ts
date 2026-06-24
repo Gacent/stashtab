@@ -25,7 +25,7 @@ export async function callSenseNova(
         { role: "user", content: userContent },
       ],
       temperature: 0.3,
-      max_tokens: 64000,
+      max_tokens: 4096,
     }),
   });
 

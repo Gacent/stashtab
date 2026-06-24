@@ -36,9 +36,12 @@ aiExtractRouter.post("/", async (c) => {
     let result: { title?: string; summary?: string; tags: string[]; type?: string; _fallback?: boolean };
 
     if (body.type === "link") {
-      const input = `标题：${body.title || ""}\n内容：${body.content}`;
+      // Truncate content to 1500 chars to avoid hitting model limits
+      const truncatedContent = body.content.slice(0, 1500);
+      const input = `标题：${body.title || ""}\n内容：${truncatedContent}`;
       const text = await callSenseNova(apiKey, LINK_EXTRACT_PROMPT, input);
       const parsed = safeJsonParse(text) as Record<string, unknown>;
+      console.log(`[ai-extract] Raw AI response: ${text.slice(0, 200)}`);
       result = {
         title: typeof parsed.title === "string" ? parsed.title : "",
         summary: typeof parsed.summary === "string" ? parsed.summary : "",
