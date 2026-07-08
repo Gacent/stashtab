@@ -141,7 +141,7 @@ export default function HomePage() {
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [filterActive, loadingMore]);
+  }, [cursor, filterActive, loadingMore]);
 
   // Load tags for the filter sheet
   useEffect(() => {
