@@ -30,15 +30,29 @@ async function withFeishu<T>(c: any, fn: (token: string) => Promise<T>): Promise
 bookmarksRouter.get("/", async (c) => {
   const tag = c.req.query("tag");
   const q = c.req.query("q");
+  const source = c.req.query("source");
+  const range = c.req.query("range");
+  const start = c.req.query("start");
+  const end = c.req.query("end");
   const pageSize = Math.min(parseInt(c.req.query("limit") || "20"), 50);
   const pageToken = c.req.query("cursor");
 
   return withFeishu(c, async (token) => {
-    if (q || tag) {
+    if (q || tag || source || range || start || end) {
       const result = await searchFeishuRecords(token, c.env.FEISHU_BASE_APP_TOKEN, c.env.FEISHU_BASE_TABLE_ID, {
         query: q || undefined,
         tag: tag || undefined,
+        source: source || undefined,
+        timeRange: range || undefined,
+        timeStart: start || undefined,
+        timeEnd: end || undefined,
         pageSize,
+      });
+      // Sort by date descending for filtered results
+      result.items.sort((a, b) => {
+        const ta = new Date(a.fields["保存时间"] ?? 0).getTime();
+        const tb = new Date(b.fields["保存时间"] ?? 0).getTime();
+        return tb - ta;
       });
       return { bookmarks: result.items.map(toBookmark), nextCursor: null };
     }

@@ -1,0 +1,74 @@
+# Decision-Point Audit Report
+
+**变更**: homepage-filter  
+**生成时间**: 2026-07-08T02:37:59.176Z  
+**当前状态**: executing  
+
+## 汇总表
+
+| DP | 名称 | 结果 | 时间戳 |
+|----|------|------|--------|
+| DP-0 | 用户确认门禁 | confirmed | 2026-07-08T09:28:00+08:00 |
+| DP-1 | 需求确认 | not recorded | — |
+| DP-2 | 工件审查 | approved: proposal + specs(3) + design + tasks(14 tasks, 4 batches) all confirmed by user | 2026-07-08T09:45:00+08:00 |
+| DP-3 | 契约批准 | approved: execution-contract approved by user. 4 batches, 14 tasks. Starting implementation. | 2026-07-08T09:50:00+08:00 |
+| DP-4 | 执行模式选择 | SDD: 14 tasks across 4 batches, cross-module (worker+frontend), multiple risk indicators (Feishu filter syntax, new API params). Full SDD workflow. | — |
+| DP-5 | 调试升级 | not recorded | — |
+| DP-6 | 验证失败 | not recorded | — |
+| DP-7 | 归档确认 | not recorded | — |
+
+**统计**: 4/8 已记录，4/8 未记录。
+
+## 逐决策点说明
+
+### DP-0: 用户确认门禁
+
+- **结果**: confirmed
+- **时间戳**: 2026-07-08T09:28:00+08:00
+- **解读**: 决策点 DP-0 已记录为 "confirmed"。
+
+### DP-1: 需求确认
+
+- **结果**: not recorded
+- **时间戳**: —
+- **解读**: 该决策点尚未记录结果。如果工作流已经经过该阶段，请检查是否漏记。
+
+### DP-2: 工件审查
+
+- **结果**: approved: proposal + specs(3) + design + tasks(14 tasks, 4 batches) all confirmed by user
+- **时间戳**: 2026-07-08T09:45:00+08:00
+- **解读**: 决策点 DP-2 已记录为 "approved: proposal + specs(3) + design + tasks(14 tasks, 4 batches) all confirmed by user"。
+
+### DP-3: 契约批准
+
+- **结果**: approved: execution-contract approved by user. 4 batches, 14 tasks. Starting implementation.
+- **时间戳**: 2026-07-08T09:50:00+08:00
+- **解读**: 决策点 DP-3 已记录为 "approved: execution-contract approved by user. 4 batches, 14 tasks. Starting implementation."。
+
+### DP-4: 执行模式选择
+
+- **结果**: SDD: 14 tasks across 4 batches, cross-module (worker+frontend), multiple risk indicators (Feishu filter syntax, new API params). Full SDD workflow.
+- **时间戳**: —
+- **解读**: 决策点 DP-4 已记录为 "SDD: 14 tasks across 4 batches, cross-module (worker+frontend), multiple risk indicators (Feishu filter syntax, new API params). Full SDD workflow."。
+
+### DP-5: 调试升级
+
+- **结果**: not recorded
+- **时间戳**: —
+- **解读**: 该决策点尚未记录结果。如果工作流已经经过该阶段，请检查是否漏记。
+
+### DP-6: 验证失败
+
+- **结果**: not recorded
+- **时间戳**: —
+- **解读**: 该决策点尚未记录结果。如果工作流已经经过该阶段，请检查是否漏记。
+
+### DP-7: 归档确认
+
+- **结果**: not recorded
+- **时间戳**: —
+- **解读**: 该决策点尚未记录结果。如果工作流已经经过该阶段，请检查是否漏记。
+
+---
+
+*本报告由 `ssf audit` 自动生成，仅供审计与归档参考。*

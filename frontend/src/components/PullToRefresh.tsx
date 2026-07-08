@@ -3,11 +3,12 @@ import { useRef, useState, useCallback } from "react";
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>;
   children: React.ReactNode;
+  disabled?: boolean;
 }
 
 const THRESHOLD = 60;
 
-export default function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
+export default function PullToRefresh({ onRefresh, children, disabled }: PullToRefreshProps) {
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const startY = useRef(0);
@@ -15,22 +16,22 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
   const pullRef = useRef(0); // ref mirrors pullDistance for closure-safe reads
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (window.scrollY > 0) return;
+    if (disabled || window.scrollY > 0) return;
     startY.current = e.touches[0].clientY;
     pulling.current = true;
-  }, []);
+  }, [disabled]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!pulling.current || refreshing) return;
+    if (!pulling.current || refreshing || disabled) return;
     const delta = e.touches[0].clientY - startY.current;
     if (delta <= 0) { pullRef.current = 0; setPullDistance(0); return; }
     const distance = Math.min(Math.sqrt(delta * 10), 120);
     pullRef.current = distance;
     setPullDistance(distance);
-  }, [refreshing]);
+  }, [refreshing, disabled]);
 
   const handleTouchEnd = useCallback(async () => {
-    if (!pulling.current || refreshing) return;
+    if (!pulling.current || refreshing || disabled) return;
     pulling.current = false;
     if (pullRef.current >= THRESHOLD) {
       setRefreshing(true);
@@ -46,7 +47,7 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
       pullRef.current = 0;
       setPullDistance(0);
     }
-  }, [refreshing, onRefresh]);
+  }, [refreshing, onRefresh, disabled]);
 
   return (
     <div

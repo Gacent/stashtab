@@ -1,0 +1,41 @@
+# .spec-superflow.yaml — lightweight state machine
+# Derived data. Always rebuildable from artifacts. Lost/corrupt → fall back to content-level detection.
+
+# === Core state ===
+state: closing
+workflow: full
+
+# === Hashes (fast staleness detection) ===
+artifacts_hash: sha256:251efc847b4e1e4720cb77b7ca557bc33ec304632bdcdebdb34350e94a9ca018
+contract_hash: null
+
+# === Execution progress ===
+execution_mode: null
+batches_completed: 4
+test_result: pass
+
+# === Metadata ===
+change_name: homepage-filter
+last_transition: 2026-07-08T02:41:26.335Z
+last_transition_from: executing
+last_transition_to: closing
+
+# === Decision points ===
+dp_0_decisions: Change: homepage-filter - 增加首页内联筛选功能，支持按标签/时间范围/类型等维度在首页直接筛选。沟通偏好：每个决策逐个确认。
+dp_0_result: confirmed
+dp_0_confirmed: true
+dp_0_timestamp: 2026-07-08T09:28:00+08:00
+dp_1_result: null
+dp_1_timestamp: null
+dp_2_result: approved: proposal + specs(3) + design + tasks(14 tasks, 4 batches) all confirmed by user
+dp_2_timestamp: 2026-07-08T09:45:00+08:00
+dp_3_result: approved: execution-contract approved by user. 4 batches, 14 tasks. Starting implementation.
+dp_3_timestamp: 2026-07-08T09:50:00+08:00
+dp_4_result: SDD: 14 tasks across 4 batches, cross-module (worker+frontend), multiple risk indicators (Feishu filter syntax, new API params). Full SDD workflow.
+dp_4_timestamp: null
+dp_5_result: null
+dp_5_timestamp: null
+dp_6_result: PASS: 12/12 contract requirements verified. TypeScript compilation clean (worker+frontend). LSP diagnostics clean (6 files). 4 batches complete.
+dp_6_timestamp: 2026-07-08T10:30:00+08:00
+dp_7_result: null
+dp_7_timestamp: null

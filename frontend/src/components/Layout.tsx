@@ -60,9 +60,7 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Main Content */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 pb-20">
-        <div className="page-enter page-enter-active">
-          {children}
-        </div>
+        {children}
       </main>
 
           {/* Bottom Navigation */}

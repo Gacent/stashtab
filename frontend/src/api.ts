@@ -35,12 +35,16 @@ export const api = {
   },
 
   // Bookmarks - list, search, filter by tag all through /bookmarks
-  listBookmarks(params?: { cursor?: string; limit?: number; tag?: string; q?: string }) {
+  listBookmarks(params?: { cursor?: string; limit?: number; tag?: string; q?: string; source?: string; range?: string; start?: string; end?: string }) {
     const sp = new URLSearchParams();
     if (params?.cursor) sp.set("cursor", params.cursor);
     if (params?.limit) sp.set("limit", String(params.limit));
     if (params?.tag) sp.set("tag", params.tag);
     if (params?.q) sp.set("q", params.q);
+    if (params?.source) sp.set("source", params.source);
+    if (params?.range) sp.set("range", params.range);
+    if (params?.start) sp.set("start", params.start);
+    if (params?.end) sp.set("end", params.end);
     return request<BookmarkListResponse>(`/bookmarks${sp.toString() ? `?${sp}` : ""}`);
   },
 

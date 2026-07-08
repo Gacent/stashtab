@@ -136,6 +136,7 @@ export async function listFeishuRecords(
   tableId: string,
   pageSize?: number,
   pageToken?: string,
+  filter?: string,
 ): Promise<{
   items: { record_id: string; fields: Record<string, any> }[];
   page_token: string | null;
@@ -144,6 +145,7 @@ export async function listFeishuRecords(
   const params = new URLSearchParams();
   if (pageSize !== undefined) params.set("page_size", String(pageSize));
   if (pageToken !== undefined) params.set("page_token", pageToken);
+  if (filter !== undefined) params.set("filter", filter);
   // Sort by 保存时间 descending (newest first)
   params.set("sort", JSON.stringify(["保存时间 desc"]));
 
@@ -251,20 +253,78 @@ export async function listFeishuFieldOptions(
 /*  6. searchFeishuRecords                                             */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Build a Feishu filter formula from source/time options.
+ * Returns undefined when no server-side filter is needed.
+ */
+function buildFeishuFilter(options: {
+  source?: string;
+  timeRange?: string;
+  timeStart?: string;
+  timeEnd?: string;
+}): string | undefined {
+  const conditions: string[] = [];
+
+  // Source filter (exclude "note" — handled client-side)
+  if (options.source && options.source !== "note") {
+    conditions.push(`CurrentValue.[来源].contains("${options.source}")`);
+  }
+
+  // Time range filter — Feishu date fields require built-in date functions (TODAY(), TODATE())
+  // TODAY() = start of today, TODAY()-N = N days ago
+  if (options.timeRange === "today") {
+    conditions.push(`CurrentValue.[保存时间] >= TODAY()`);
+  } else if (options.timeRange === "yesterday") {
+    conditions.push(`CurrentValue.[保存时间] >= TODAY()-1`);
+    conditions.push(`CurrentValue.[保存时间] < TODAY()`);
+  } else if (options.timeRange === "7d") {
+    conditions.push(`CurrentValue.[保存时间] >= TODAY()-6`);
+  } else if (options.timeRange === "30d") {
+    conditions.push(`CurrentValue.[保存时间] >= TODAY()-29`);
+  }
+
+  // Custom date range uses TODATE() for ISO date strings
+  if (options.timeStart) {
+    conditions.push(`CurrentValue.[保存时间] >= TODATE("${options.timeStart}")`);
+  }
+  if (options.timeEnd) {
+    // End of the selected day: timeEnd + 1 day
+    const endDate = new Date(options.timeEnd);
+    endDate.setDate(endDate.getDate() + 1);
+    const endStr = endDate.toISOString().split("T")[0]; // YYYY-MM-DD
+    conditions.push(`CurrentValue.[保存时间] < TODATE("${endStr}")`);
+  }
+
+  if (conditions.length === 0) return undefined;
+  return conditions.join(" && ");
+}
+
 export async function searchFeishuRecords(
   token: string,
   appToken: string,
   tableId: string,
-  options: { query?: string; tag?: string; pageSize?: number },
+  options: {
+    query?: string;
+    tag?: string;
+    source?: string;
+    timeRange?: string;
+    timeStart?: string;
+    timeEnd?: string;
+    pageSize?: number;
+  },
 ): Promise<{
   items: { record_id: string; fields: Record<string, any> }[];
 }> {
-  const { query, tag } = options;
+  const { query, tag, source } = options;
   const allItems: { record_id: string; fields: Record<string, any> }[] = [];
   let pageToken: string | undefined;
   let hasMore = true;
   let pageCount = 0;
-  const MAX_PAGES = 5; // Safety: cap at 5 pages (2500 records with default 500/page)
+
+  // Build Feishu server-side filter (time range + source, excluding "note")
+  const filter = buildFeishuFilter(options);
+  // Relax page limit when Feishu pre-filters — data volume is much smaller
+  const MAX_PAGES = filter ? 10 : 5;
 
   // Fetch pages (with safety limit)
   while (hasMore && pageCount < MAX_PAGES) {
@@ -274,6 +334,7 @@ export async function searchFeishuRecords(
       tableId,
       Math.min(options.pageSize ?? 500, 500),
       pageToken,
+      filter,
     );
     allItems.push(...result.items);
     hasMore = result.has_more;
@@ -284,6 +345,23 @@ export async function searchFeishuRecords(
   // Client-side filtering
   const filtered = allItems.filter((item) => {
     const fields = item.fields;
+
+    // Source filter for "note" (no URL) — done client-side
+    if (source === "note") {
+      const urlField = fields["URL"];
+      const hasUrl =
+        (typeof urlField === "string" && urlField.length > 0) ||
+        (typeof urlField === "object" && urlField !== null && (urlField.link || urlField.url));
+      if (hasUrl) return false;
+    }
+
+    // Source fine-print: for non-note sources that were server-filtered,
+    // the Feishu contains() is case-sensitive, so we do a client-side
+    // case-insensitive check as a safety net
+    if (source && source !== "note") {
+      const sourceField = String(fields["来源"] || "").toLowerCase();
+      if (!sourceField.includes(source.toLowerCase())) return false;
+    }
 
     // Tag filter: 标签 is an array of objects/strings
     if (tag) {
