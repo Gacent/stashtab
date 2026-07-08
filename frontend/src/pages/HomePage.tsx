@@ -159,7 +159,8 @@ export default function HomePage() {
     }
 
     setBookmarks(filtered);
-    setCursor(null); // Filtered results don't support cursor pagination
+    // Only set cursor for unfiltered results (filtered results don't support cursor pagination)
+    setCursor(hasActiveFilter(filter) ? null : result.nextCursor);
     setPageCache(getCacheKey(filter), filtered);
     setLoading(false);
   }, []);
