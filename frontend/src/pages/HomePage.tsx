@@ -122,6 +122,27 @@ export default function HomePage() {
   bookmarksRef.current = bookmarks;
   cursorRef.current = cursor;
 
+  // Infinite scroll sentinel ref
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Infinite scroll: observe sentinel element, load more when visible
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && cursorRef.current && !filterActive && !loadingMore) {
+          loadMore();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [filterActive, loadingMore]);
+
   // Load tags for the filter sheet
   useEffect(() => {
     api.listTags().then(setAllTags).catch(() => {});
@@ -160,8 +181,9 @@ export default function HomePage() {
 
     setBookmarks(filtered);
     // Only set cursor for unfiltered results (filtered results don't support cursor pagination)
-    setCursor(hasActiveFilter(filter) ? null : result.nextCursor);
-    setPageCache(getCacheKey(filter), filtered);
+    const nextCursor = hasActiveFilter(filter) ? null : result.nextCursor;
+    setCursor(nextCursor);
+    setPageCache(getCacheKey(filter), { bookmarks: filtered, cursor: nextCursor });
     setLoading(false);
   }, []);
 
@@ -169,11 +191,15 @@ export default function HomePage() {
     const handleScroll = () => saveScrollPosition(cacheKey);
     window.addEventListener("scroll", handleScroll, { passive: true });
 
-    const cached = getPageCache<Bookmark[]>(cacheKey);
+    const cached = getPageCache<Bookmark[] | { bookmarks: Bookmark[]; cursor: string | null }>(cacheKey);
     if (!cached) {
       loadBookmarks(currentFilter);
     } else {
-      setBookmarks(cached);
+      // Support both old format (array) and new format (object with bookmarks + cursor)
+      const bookmarks = Array.isArray(cached) ? cached : cached.bookmarks;
+      const savedCursor = Array.isArray(cached) ? null : cached.cursor;
+      setBookmarks(bookmarks);
+      setCursor(savedCursor);
       setLoading(false);
       if (!restored.current) {
         restored.current = true;
@@ -202,9 +228,10 @@ export default function HomePage() {
     try {
       const result = await api.listBookmarks({ cursor: currentCursor, limit: 20 });
       const all = [...bookmarksRef.current, ...result.bookmarks];
+      const nextCursor = result.nextCursor;
       setBookmarks(all);
-      setPageCache(cacheKey, all);
-      setCursor(result.nextCursor);
+      setCursor(nextCursor);
+      setPageCache(cacheKey, { bookmarks: all, cursor: nextCursor });
     } finally {
       setLoadingMore(false);
     }
@@ -396,11 +423,11 @@ export default function HomePage() {
                 </div>
               </div>
             ))}
+            {/* Infinite scroll sentinel */}
             {cursor && !filterActive && (
-              <button onClick={loadMore} disabled={loadingMore}
-                className="w-full py-3 text-sm text-[var(--color-primary)] hover:opacity-80 transition-opacity font-medium disabled:opacity-50">
-                {loadingMore ? "加载中..." : "加载更多"}
-              </button>
+              <div ref={sentinelRef} className="py-3 text-center text-sm text-[var(--color-muted)]">
+                {loadingMore ? "加载中..." : ""}
+              </div>
             )}
           </div>
         )}
