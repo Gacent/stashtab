@@ -88,9 +88,12 @@ export default function HomeFilterSheet({
     onReset();
   }
 
-  // Close on overlay click
+  // Close on overlay click (not on sheet content)
   function handleOverlayClick(e: React.MouseEvent) {
-    if (e.target === e.currentTarget) onClose();
+    // If click is NOT inside the sheet panel, close the overlay
+    if (sheetRef.current && !sheetRef.current.contains(e.target as Node)) {
+      onClose();
+    }
   }
 
   // Lock body scroll when open

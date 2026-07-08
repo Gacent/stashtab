@@ -237,12 +237,14 @@ export default function HomePage() {
 
   function handleApplyFilter(filter: BookmarkFilter) {
     setFilterOpen(false);
+    setLoading(true);
     const params = filterToParams(filter);
     setSearchParams(params, { replace: true });
   }
 
   function handleResetFilter() {
     setFilterOpen(false);
+    setLoading(true);
     setSearchParams({}, { replace: true });
   }
 
