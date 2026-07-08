@@ -144,6 +144,8 @@ export async function listFeishuRecords(
   const params = new URLSearchParams();
   if (pageSize !== undefined) params.set("page_size", String(pageSize));
   if (pageToken !== undefined) params.set("page_token", pageToken);
+  // Sort by 保存时间 descending (newest first)
+  params.set("sort", JSON.stringify(["保存时间 desc"]));
 
   const url = `${FEISHU_BASE}/bitable/v1/apps/${appToken}/tables/${tableId}/records${params.size > 0 ? "?" + params.toString() : ""}`;
 
