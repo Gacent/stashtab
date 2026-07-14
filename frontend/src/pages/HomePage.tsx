@@ -324,9 +324,9 @@ export default function HomePage() {
           border-b border-[var(--color-hairline)] dark:border-[var(--color-surface-dark-elevated)]">
           <div className="flex items-center">
             {/* Filter + Search buttons - collapse when form is active */}
-            <div className={`flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out ${
+            <div className={`flex-shrink-0 flex items-center overflow-hidden transition-all duration-300 ease-in-out ${
               formActive ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[96px] gap-2'
-            } ${formActive ? '' : 'gap-2'}`}>
+            }`}>
               {/* Filter button */}
               <button onClick={() => setFilterOpen(true)}
                 className="flex-shrink-0 w-10 h-10 flex items-center justify-center
