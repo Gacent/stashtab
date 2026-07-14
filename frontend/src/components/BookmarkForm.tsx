@@ -17,7 +17,7 @@ interface PreviewData {
 
 const tagOptions = ["技术", "AI", "商业", "产品", "设计", "生活", "开源", "教程", "新闻", "观点", "工具", "资源", "阅读", "其它"];
 
-export default function BookmarkForm({ onSaved }: { onSaved: () => void }) {
+export default function BookmarkForm({ onSaved, onActiveChange }: { onSaved: () => void; onActiveChange?: (active: boolean) => void }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -27,8 +27,9 @@ export default function BookmarkForm({ onSaved }: { onSaved: () => void }) {
   const [customTag, setCustomTag] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => { 
-    if (showForm) inputRef.current?.focus(); 
+  useEffect(() => {
+    if (showForm) inputRef.current?.focus();
+    onActiveChange?.(showForm);
   }, [showForm]);
 
   async function handlePaste() {
