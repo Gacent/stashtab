@@ -115,6 +115,7 @@ export default function HomePage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [allTags, setAllTags] = useState<{ name: string; count: number }[]>([]);
+  const [formActive, setFormActive] = useState(false);
 
   // Refs to avoid stale closures in loadMore
   const bookmarksRef = useRef(bookmarks);
@@ -321,34 +322,41 @@ export default function HomePage() {
         <div className="sticky top-[65px] z-10 -mx-4 px-4 pt-4 pb-3
           bg-[var(--color-canvas)] dark:bg-[var(--color-surface-dark)]
           border-b border-[var(--color-hairline)] dark:border-[var(--color-surface-dark-elevated)]">
-          <div className="flex items-center gap-2">
-            {/* Filter button */}
-            <button onClick={() => setFilterOpen(true)}
-              className="flex-shrink-0 w-10 h-10 flex items-center justify-center
-                bg-[var(--color-surface-card)] dark:bg-[var(--color-surface-dark-elevated)]
-                rounded-[var(--radius-lg)] text-[var(--color-muted)] hover:text-[var(--color-primary)]
-                transition-colors btn-press relative">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-              {/* Active indicator dot */}
-              {filterActive && (
-                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[var(--color-primary)]" />
-              )}
-            </button>
-            {/* Search button */}
-            <button onClick={() => navigate("/search")}
-              className="flex-shrink-0 w-10 h-10 flex items-center justify-center
-                bg-[var(--color-surface-card)] dark:bg-[var(--color-surface-dark-elevated)]
-                rounded-[var(--radius-lg)] text-[var(--color-muted)] hover:text-[var(--color-primary)]
-                transition-colors btn-press">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
-            <div className="flex-1">
-              <BookmarkForm onSaved={handleSaved} />
+          <div className="flex items-center">
+            {/* Filter + Search buttons - collapse when form is active */}
+            <div className={`flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out ${
+              formActive ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[96px] gap-2'
+            } ${formActive ? '' : 'gap-2'}`}>
+              {/* Filter button */}
+              <button onClick={() => setFilterOpen(true)}
+                className="flex-shrink-0 w-10 h-10 flex items-center justify-center
+                  bg-[var(--color-surface-card)] dark:bg-[var(--color-surface-dark-elevated)]
+                  rounded-[var(--radius-lg)] text-[var(--color-muted)] hover:text-[var(--color-primary)]
+                  transition-colors btn-press relative">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293-.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                {/* Active indicator dot */}
+                {filterActive && (
+                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[var(--color-primary)]" />
+                )}
+              </button>
+              {/* Search button */}
+              <button onClick={() => navigate("/search")}
+                className="flex-shrink-0 w-10 h-10 flex items-center justify-center
+                  bg-[var(--color-surface-card)] dark:bg-[var(--color-surface-dark-elevated)]
+                  rounded-[var(--radius-lg)] text-[var(--color-muted)] hover:text-[var(--color-primary)]
+                  transition-colors btn-press">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </button>
+            </div>
+            {/* Gap spacer that collapses when buttons hide */}
+            {formActive ? null : <div className="w-2" />}
+            <div className="flex-1 min-w-0 transition-all duration-300 ease-in-out">
+              <BookmarkForm onSaved={handleSaved} onActiveChange={setFormActive} />
             </div>
           </div>
 
