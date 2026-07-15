@@ -108,7 +108,11 @@ export default function HomePage() {
   const cacheKey = useMemo(() => getCacheKey(currentFilter), [currentFilter]);
   const filterActive = hasActiveFilter(currentFilter);
 
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => getPageCache<Bookmark[]>(cacheKey) || []);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => {
+    const cached = getPageCache<Bookmark[] | { bookmarks: Bookmark[]; cursor: string | null }>(cacheKey);
+    if (!cached) return [];
+    return Array.isArray(cached) ? cached : cached.bookmarks;
+  });
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(!getPageCache(cacheKey));
   const restored = useRef(false);
