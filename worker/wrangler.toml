@@ -5,3 +5,11 @@ compatibility_flags = ["nodejs_compat"]
 
 [browser]
 binding = "BROWSER"
+
+[[kv_namespaces]]
+binding = "OG_CACHE"
+id = "og-cache"
+
+[[kv_namespaces]]
+binding = "AI_CACHE"
+id = "ai-cache"

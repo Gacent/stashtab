@@ -6,4 +6,6 @@ export interface Env {
   FEISHU_BASE_APP_TOKEN: string;
   FEISHU_BASE_TABLE_ID: string;
   BROWSER: any; // Cloudflare Browser Run binding
+  OG_CACHE: KVNamespace;
+  AI_CACHE: KVNamespace;
 }
