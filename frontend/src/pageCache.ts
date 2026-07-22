@@ -30,3 +30,8 @@ export function getScrollPosition(key: string): number {
 export function clearPageCache(key: string): void {
   store.delete(key);
 }
+
+/** Clear all cached page data — use after delete to force re-fetch */
+export function clearAllPageCache(): void {
+  store.clear();
+}

@@ -207,6 +207,15 @@ input, textarea, select {
   background: var(--color-muted);
 }
 
+/* Hide scrollbar for swipe-to-delete */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* Selection color */
 ::selection {
   background-color: rgba(204, 120, 92, 0.25);

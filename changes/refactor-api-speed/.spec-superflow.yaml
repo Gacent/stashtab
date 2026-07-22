@@ -1,0 +1,41 @@
+# .spec-superflow.yaml — lightweight state machine
+# Derived data. Always rebuildable from artifacts. Lost/corrupt → fall back to content-level detection.
+
+# === Core state ===
+state: closing
+workflow: full
+
+# === Hashes (fast staleness detection) ===
+artifacts_hash: sha256:7372925d3a4441c98da9418370ac0c8e7b2e36d12e42ccd28c5404aac6fcf6ab
+contract_hash: sha256:f3551c0b69ae50f47a82657c8df745886c759c01c111cb8eba8d92d455410bef
+
+# === Execution progress ===
+execution_mode: null
+batches_completed: 5
+test_result: pass
+
+# === Metadata ===
+change_name: refactor-api-speed
+last_transition: 2026-07-22T02:21:16.312Z
+last_transition_from: null
+last_transition_to: null
+
+# === Decision points ===
+dp_0_decisions: Change: refactor-api-speed - 重构 /api/fetch-meta 和 /api/ai-extract 接口，提升响应速度和稳定性。沟通偏好：每个决策逐个确认。
+dp_0_result: confirmed
+dp_0_confirmed: true
+dp_0_timestamp: 2026-07-22T10:30:00+08:00
+dp_1_result: null
+dp_1_timestamp: null
+dp_2_result: null
+dp_2_timestamp: null
+dp_3_result: approved: execution-contract approved by user. 5 batches, 11 tasks, 15 requirements. Starting implementation.
+dp_3_timestamp: 2026-07-22T11:00:00+08:00
+dp_4_result: SDD: 5 batches, 11 tasks, cross-module (worker+frontend), KV config change, API refactoring with risk of breaking changes. Full SDD workflow.
+dp_4_timestamp: 2026-07-22T11:05:00+08:00
+dp_5_result: null
+dp_5_timestamp: null
+dp_6_result: 'PASS: 5 batches, 11 tasks completed + hotfix: Microlink timeout removed (15s→CF 30s platform limit). TypeScript clean. 15 contract requirements implemented.'
+dp_6_timestamp: 2026-07-22T14:00:00+08:00
+dp_7_result: 'confirmed: refactor-api-speed 归档完成 — fetch-meta 通用化(并行UA+质量评分+KV缓存+Microlink兜底无超时), ai-extract 重构(500字裁剪+简化prompt+60s超时重试+KV缓存), 前端分步展示(loading/aiLoading分离)'
+dp_7_timestamp: 2026-07-22T14:35:00+08:00

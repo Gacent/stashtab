@@ -1,15 +1,15 @@
 import { Hono } from "hono";
 import { Env } from "../types";
-import puppeteer from "@cloudflare/puppeteer";
 
 export const fetchMetaRouter = new Hono<{ Bindings: Env }>();
 
-// Search engine bot UAs that bypass byted_acrawler (Toutiao/ByteDance anti-bot)
-const BOT_UAs = [
-  "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
-  "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
-  "Mozilla/5.0 (compatible; Baiduspider/2.0; +http://www.baidu.com/search/spider.html)",
-];
+interface MetaResult {
+  title: string;
+  description: string;
+  cover_image: string;
+  source: string;
+  content: string;
+}
 
 /** SSRF protection: validate URL scheme + block private IPs */
 function validateUrl(urlStr: string): { ok: boolean; error?: string } {
@@ -71,54 +71,60 @@ fetchMetaRouter.post("/", async (c) => {
 
     console.log(`[fetch-meta] Processing: ${url}`);
 
-    // Special handling for GitHub repo URLs — use GitHub API since direct fetch fails from CF Workers
-    const githubResult = await tryGithubApi(url, hostname);
-    if (githubResult) {
-      console.log(`[fetch-meta] ✓ GitHub API: ${githubResult.title}`);
-      return c.json(githubResult);
-    }
-
-    // Special handling for Bilibili — use Bilibili API since all bot UAs are blocked
-    const bilibiliResult = await tryBilibiliApi(url, hostname);
-    if (bilibiliResult) {
-      console.log(`[fetch-meta] ✓ Bilibili API: ${bilibiliResult.title}`);
-      return c.json(bilibiliResult);
-    }
-
-// Toutiao handled by tryFetch with Googlebot UA
-
-    const html = await tryFetch(url);
-
-    if (html) {
-      const rawTitle = extractMeta(html, "og:title") || extractMeta(html, "twitter:title") || extractTitle(html) || "";
-      let decodedTitle = "";
-      try { decodedTitle = decode(decodeURIComponent(rawTitle)); } catch { decodedTitle = decode(rawTitle); }
-      const title = decodedTitle;
-      const description = decode(extractMeta(html, "og:description") || extractMeta(html, "twitter:description") || extractMeta(html, "description") || "");
-      const image = extractMeta(html, "og:image") || extractMeta(html, "twitter:image") || "";
-
-      // If we got meaningful OG tags, return them
-      if (title && title !== "视频号") {
-        console.log(`[fetch-meta] ✓ OG tags: ${title}`);
-        return c.json({
-          title: title || hostname,
-          description: description || `来自 ${hostname}`,
-          cover_image: image,
-          source: hostname,
-          content: extractContent(html).slice(0, 2000),
-        });
+    // 1. Check KV cache
+    const cacheKey = `og:${url}`;
+    if (c.env.OG_CACHE) {
+      const cached = await c.env.OG_CACHE.get(cacheKey, { type: "json" });
+      if (cached) {
+        const result = cached as MetaResult;
+        console.log(`[fetch-meta] ✓ Cache hit: ${result.title}`);
+        return c.json(result);
       }
     }
 
-    // Fallback to Browser Run for JS-rendered pages
-    console.log(`[fetch-meta] ⏳ Trying Browser Run...`);
-    const browserResult = await tryBrowserRender(c.env, url);
-    if (browserResult) {
-      console.log(`[fetch-meta] ✓ Browser Run: ${browserResult.title}`);
-      return c.json(browserResult);
+    // 2. Parallel UA fetch
+    const bestHtml = await tryFetchParallel(url);
+
+    if (bestHtml) {
+      // 3. Extract OG metadata from HTML
+      const meta = extractMetaFromHtml(bestHtml);
+
+      if (meta.title) {
+        const result: MetaResult = {
+          title: meta.title || hostname,
+          description: meta.description || `来自 ${hostname}`,
+          cover_image: meta.cover_image,
+          source: hostname,
+          content: extractContent(bestHtml).slice(0, 2000),
+        };
+
+        // 4. Write to KV cache
+        if (c.env.OG_CACHE) {
+          await c.env.OG_CACHE.put(cacheKey, JSON.stringify(result), {
+            expirationTtl: 86400,
+          });
+        }
+
+        console.log(`[fetch-meta] ✓ OG tags: ${result.title}`);
+        return c.json(result);
+      }
     }
 
-    // Final fallback
+    // 5. Microlink API fallback
+    console.log(`[fetch-meta] ⏳ Trying Microlink API...`);
+    const microlinkResult = await tryMicrolink(url);
+    if (microlinkResult) {
+      // Write to KV cache
+      if (c.env.OG_CACHE) {
+        await c.env.OG_CACHE.put(cacheKey, JSON.stringify(microlinkResult), {
+          expirationTtl: 86400,
+        });
+      }
+      console.log(`[fetch-meta] ✓ Microlink: ${microlinkResult.title}`);
+      return c.json(microlinkResult);
+    }
+
+    // 6. Final fallback
     console.log(`[fetch-meta] ⚠ Fallback: ${hostname}`);
     return c.json(fallback(url, hostname));
   } catch {
@@ -130,174 +136,150 @@ fetchMetaRouter.post("/", async (c) => {
   }
 });
 
-/** Try GitHub API for github.com/owner/repo URLs */
-async function tryGithubApi(url: string, hostname: string): Promise<ReturnType<typeof fallback> | null> {
-  if (!hostname.includes("github.com")) return null;
-  try {
-    const u = new URL(url);
-    const parts = u.pathname.split("/").filter(Boolean);
-    if (parts.length < 2) return null;
-    const [owner, repo] = parts;
+/** Fetch with 4 parallel UAs, score each response, return the best HTML text */
+async function tryFetchParallel(url: string): Promise<string | null> {
+  const uas = [
+    "Twitterbot/1.0",
+    "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+    "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
+    "Mozilla/5.0 (compatible; Baiduspider/2.0; +http://www.baidu.com/search/spider.html)",
+  ];
 
-    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-      headers: { "Accept": "application/vnd.github.v3+json", "User-Agent": "BookmarkApp/1.0" },
+  const results = await Promise.allSettled(
+    uas.map((ua) => fetchWithTimeout(url, ua, 5000)),
+  );
+
+  // Read each successful response body and score it
+  const scored: { html: string; score: number }[] = [];
+
+  for (const result of results) {
+    if (result.status !== "fulfilled" || !result.value) continue;
+    try {
+      const html = await result.value.text();
+      const score = qualityScore(html);
+      if (score > 0) scored.push({ html, score });
+    } catch {
+      // If reading body fails, skip this response
+    }
+  }
+
+  if (scored.length === 0) return null;
+
+  // Sort by score descending, return the best HTML
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0].html;
+}
+
+/** Fetch a URL with a specific User-Agent and timeout */
+async function fetchWithTimeout(
+  url: string,
+  userAgent: string,
+  timeoutMs: number,
+): Promise<Response | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": userAgent,
+        "Accept":
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+      },
+      redirect: "follow",
+      signal: controller.signal,
     });
     if (!res.ok) return null;
-    const data = await res.json() as any;
-
-    const description = data.description ? decode(data.description) : "";
-    const stars = data.stargazers_count > 0 ? `⭐ ${data.stargazers_count}` : "";
-    const lang = data.language || "";
-    const summary = [description, stars, lang].filter(Boolean).join(" · ");
-
-    return {
-      title: `${owner}/${repo}`,
-      description: summary || `${owner}/${repo} on GitHub`,
-      cover_image: "",
-      source: "github.com",
-      content: description,
-    };
+    return res;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
-/** Try Bilibili API for bilibili.com/video/BVxxx URLs */
-async function tryBilibiliApi(url: string, hostname: string): Promise<ReturnType<typeof fallback> | null> {
-  if (!hostname.includes("bilibili.com") && !hostname.includes("b23.tv")) return null;
+/** Score an HTML response for quality */
+function qualityScore(html: string): number {
+  let score = 0;
 
-  // Extract BV id from URL
-  const bvidMatch = url.match(/(BV[\w]{10})/i);
-  if (!bvidMatch) return null;
-  const bvid = bvidMatch[1];
+  // OG tags indicate rich metadata
+  if (html.includes("og:title")) score += 3;
+  if (html.includes("og:description")) score += 2;
 
-  try {
-    const res = await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; BookmarkApp/1.0)" },
-    });
-    if (!res.ok) return null;
-    const json = await res.json() as any;
-    if (json.code !== 0 || !json.data) return null;
+  // Substantial content (not a thin anti-bot page)
+  if (html.length > 2000) score += 1;
 
-    const d = json.data;
-    const title = decode(d.title || "");
-    const desc = decode(d.desc || "");
-    const owner = d.owner?.name || "";
-    const pic = d.pic || "";
-    const duration = d.duration ? `${Math.floor(d.duration / 60)}:${String(d.duration % 60).padStart(2, "0")}` : "";
-    const view = d.stat?.view ?? 0;
-    const like = d.stat?.like ?? 0;
-    const favorite = d.stat?.favorite ?? 0;
-
-    // Build summary: UP主 + 播放量 + 时长 + 描述
-    const stats = [
-      owner && `UP: ${owner}`,
-      view > 0 && `${view} 播放`,
-      duration && `时长 ${duration}`,
-      like > 0 && `${like} 点赞`,
-      favorite > 0 && `${favorite} 收藏`,
-    ].filter(Boolean).join(" · ");
-
-    const summary = [stats, desc].filter(Boolean).join("\n\n");
-
-    return {
-      title: `【B站】${title}`,
-      description: summary || `${title} - Bilibili`,
-      cover_image: pic,
-      source: "bilibili.com",
-      content: desc,
-    };
-  } catch {
-    return null;
+  // No anti-bot / challenge page signals
+  const antiBotKeywords = [
+    "captcha",
+    "安全验证",
+    "人机验证",
+    "Checking your browser",
+    "byted_acrawler",
+  ];
+  const lower = html.toLowerCase();
+  if (!antiBotKeywords.some((k) => lower.includes(k.toLowerCase()))) {
+    score += 1;
   }
+
+  // Empty body = anti-bot challenge or non-page
+  if (/<body>\s*<\/body>/i.test(html)) score -= 10;
+
+  return score;
 }
 
-/** Try Browser Run for JS-rendered pages (WeChat Channels, etc.) */
-async function tryBrowserRender(env: Env, url: string): Promise<ReturnType<typeof fallback> | null> {
-  // Only use Browser Run if binding is available
-  if (!env.BROWSER) {
-    console.log(`[Browser Run] ⚠ BROWSER binding not available`);
+/** Extract OG metadata from HTML text using regex (no DOM/clone needed) */
+function extractMetaFromHtml(html: string): Pick<MetaResult, "title" | "description" | "cover_image"> {
+  const extract = (property: string): string | null => {
+    const patterns = [
+      new RegExp(`<meta[^>]+property=["']${property}["'][^>]+content=["']([^"']*)["']`, "i"),
+      new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+property=["']${property}["']`, "i"),
+      new RegExp(`<meta[^>]+name=["']${property}["'][^>]+content=["']([^"']*)["']`, "i"),
+      new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+name=["']${property}["']`, "i"),
+    ];
+    for (const p of patterns) { const m = html.match(p); if (m) return m[1]; }
     return null;
-  }
+  };
 
+  const rawTitle = extract("og:title") || extract("twitter:title") || extract("title") || html.match(/<title>([^<]*)<\/title>/i)?.[1] || "";
+  let decodedTitle = "";
+  try { decodedTitle = decode(decodeURIComponent(rawTitle)); } catch { decodedTitle = decode(rawTitle); }
+
+  return {
+    title: decodedTitle,
+    description: decode(extract("og:description") || extract("twitter:description") || extract("description") || ""),
+    cover_image: extract("og:image") || extract("twitter:image") || "",
+  };
+}
+
+/** Try Microlink API as fallback (no artificial timeout — let CF Workers' 30s limit handle it) */
+async function tryMicrolink(url: string): Promise<MetaResult | null> {
   try {
-    console.log(`[Browser Run] Launching browser...`);
-    const browser = await puppeteer.launch(env.BROWSER);
-    const page = await browser.newPage();
-
-    // Set mobile viewport
-    await page.setViewport({ width: 375, height: 812 });
-
-    // Navigate with timeout
-    console.log(`[Browser Run] Navigating to: ${url}`);
-    await page.goto(url, {
-      waitUntil: "networkidle0",
-      timeout: 15000,
-    });
-
-    // Wait a bit for dynamic content
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Extract metadata from the rendered page
-    const result = await page.evaluate(() => {
-      // @ts-ignore - This runs in browser context, not Worker
-      const getMeta = (prop: string): string | null => {
-        // @ts-ignore
-        const el = document.querySelector(`meta[property="${prop}"], meta[name="${prop}"]`);
-        return el?.getAttribute("content") || null;
-      };
-
-      return {
-        // @ts-ignore
-        title: getMeta("og:title") || document.title || null,
-        // @ts-ignore
-        description: getMeta("og:description") || document.querySelector('meta[name="description"]')?.getAttribute("content") || null,
-        image: getMeta("og:image") || null,
-        // @ts-ignore
-        content: document.body?.innerText?.slice(0, 2000) || null,
-      };
-    });
-
-    await browser.close();
-
-    // Only return if we got meaningful content
-    if (!result.title || result.title === "视频号") {
-      console.log(`[Browser Run] ⚠ No meaningful content extracted`);
+    const res = await fetch(
+      `https://api.microlink.io/?url=${encodeURIComponent(url)}`,
+    );
+    if (!res.ok) {
+      console.log(`[Microlink] ✗ HTTP ${res.status}`);
       return null;
     }
-
-    console.log(`[Browser Run] ✓ Extracted: ${result.title}`);
+    const data = (await res.json()) as { data?: { title?: string; description?: string; image?: { url?: string } } };
+    if (!data?.data?.title) {
+      console.log(`[Microlink] ✗ No title in response`);
+      return null;
+    }
     const hostname = new URL(url).hostname;
     return {
-      title: decode(result.title || ""),
-      description: decode(result.description || `来自 ${hostname}`),
-      cover_image: result.image || "",
+      title: decode(data.data.title || ""),
+      description: decode(data.data.description || `来自 ${hostname}`),
+      cover_image: data.data.image?.url || "",
       source: hostname,
-      content: result.content || "",
+      content: data.data.description || "",
     };
-  } catch (error) {
-    console.log(`[Browser Run] ✗ Error: ${error}`);
+  } catch (e) {
+    console.log(`[Microlink] ✗ Error: ${e}`);
     return null;
   }
 }
-
-/*
- * NOTE: Zhihu, Juejin, Douyin, Xiaohongshu, Toutiao adapters removed.
- * These platforms require authentication/anti-bot signatures that cannot
- * be obtained in a CF Workers environment, OR ByteDance directly blocks
- * CF Workers IP ranges (Toutiao):
- * - Zhihu: 403 without login cookies
- * - Juejin: requires msToken + a_bogus browser-computed signatures
- * - Douyin: iteminfo API returns status 11110 (closed/changed)
- * - Xiaohongshu: no public API, requires paid third-party service
- * - Toutiao: byted_acrawler blocks CF Workers IPs regardless of UA
- *
- * For Toutiao specifically: both www and mobile subdomains are blocked.
- * Even Googlebot UA returns content from local curl but not from Workers.
- * TryFetch handles whatever it can; Browser Run is the only reliable fallback.
- * Known "accessible" vs "blocked" is inconsistent per-video (probably content
- * moderation settings).
- */
 
 /** Strip tracking params and keep only meaningful ones */
 function cleanUrl(url: string): string {
@@ -310,65 +292,6 @@ function cleanUrl(url: string): string {
   }
 }
 
-/** Try to fetch the page, falling back through multiple UAs */
-async function tryFetch(url: string): Promise<string | null> {
-  // Try search engine bot UAs first — these bypass byted_acrawler anti-bot on Toutiao
-  const allUAs = [
-    ...BOT_UAs,
-    "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36",
-  ];
-
-  for (const ua of allUAs) {
-    try {
-      const html = await fetchWithUA(url, ua);
-      if (!html) continue;
-
-      // Must have OG meta or a proper title tag
-      if (!html.includes("og:title") && !html.includes("<title")) continue;
-      // Must be substantial enough to be a real page
-      if (html.length < 2000) continue;
-
-      return html;
-    } catch {
-      continue;
-    }
-  }
-  return null;
-}
-
-async function fetchWithUA(url: string, userAgent: string): Promise<string | null> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000); // 8s timeout
-  try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": userAgent,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-      },
-      redirect: "follow",
-      signal: controller.signal,
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-
-  // Reject known anti-bot / challenge pages
-  const signals = [
-    "安全验证", "captcha", "verification",
-    "Checking your browser", "人机验证", "byted_acrawler",
-  ];
-  if (signals.some((s) => html.toLowerCase().includes(s.toLowerCase()))) return null;
-  // Obfuscated JS bundle with empty body = anti-bot challenge
-  if (html.includes("<body></body>") || html.includes("<head></head>")) return null;
-
-  return html;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 function fallback(url: string, hostname: string) {
   return {
     title: makeReadableTitle(url, hostname),
@@ -377,22 +300,6 @@ function fallback(url: string, hostname: string) {
     source: hostname,
     content: "",
   };
-}
-
-function extractMeta(html: string, property: string): string | null {
-  const patterns = [
-    new RegExp(`<meta[^>]+property=["']${property}["'][^>]+content=["']([^"']*)["']`, "i"),
-    new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+property=["']${property}["']`, "i"),
-    new RegExp(`<meta[^>]+name=["']${property}["'][^>]+content=["']([^"']*)["']`, "i"),
-    new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+name=["']${property}["']`, "i"),
-  ];
-  for (const p of patterns) { const m = html.match(p); if (m) return m[1]; }
-  return null;
-}
-
-function extractTitle(html: string): string | null {
-  const m = html.match(/<title>([^<]*)<\/title>/i);
-  return m ? m[1] : null;
 }
 
 function extractContent(html: string): string {

@@ -4,7 +4,7 @@ import { api } from "../api";
 import { Bookmark } from "../types";
 import TagBadge from "../components/TagBadge";
 import { cleanText } from "../clean";
-import { clearPageCache } from "../pageCache";
+import { clearAllPageCache } from "../pageCache";
 
 export default function DetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,7 +27,7 @@ export default function DetailPage() {
     setDeleting(true);
     try {
       await api.deleteBookmark(bookmark!.id);
-      clearPageCache("home");
+      clearAllPageCache();
       navigate("/");
     } finally {
       setDeleting(false);
@@ -37,6 +37,14 @@ export default function DetailPage() {
   return (
     <div className="py-4 space-y-4">
       <button onClick={() => navigate(-1)} className="text-[var(--color-primary)] font-medium text-sm hover:text-[var(--color-primary-active)] transition-colors">← 返回</button>
+
+      {bookmark.cover_image && (
+        <div className="w-full h-48 rounded-[var(--radius-lg)] overflow-hidden">
+          <img src={bookmark.cover_image} alt="" 
+            className="w-full h-full object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+        </div>
+      )}
 
       <h1 className="font-[var(--font-display)] text-xl leading-snug text-[var(--color-ink)] dark:text-[var(--color-on-dark)] mt-2">
   {cleanText(bookmark.title)}

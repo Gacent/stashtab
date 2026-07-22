@@ -76,6 +76,7 @@ bookmarksRouter.post("/", async (c) => {
     summary?: string;
     tags?: string[];
     source?: string;
+    cover_image?: string;
   }>();
 
   // --- Input validation ---
@@ -124,6 +125,10 @@ bookmarksRouter.post("/", async (c) => {
     // URL field: only include when URL exists, use Feishu hyperlink format
     if (validUrl) {
       fields["URL"] = { text: title, link: validUrl };
+    }
+    // 封面图: only include when non-empty
+    if (body.cover_image) {
+      fields["封面图"] = body.cover_image;
     }
     const record = await createFeishuRecord(token, c.env.FEISHU_BASE_APP_TOKEN, c.env.FEISHU_BASE_TABLE_ID, fields);
     return c.json(toBookmark(record), 201);
@@ -205,5 +210,6 @@ function toBookmark(record: { record_id: string; fields: Record<string, any> }) 
     summary: f["AI摘要"] || "",
     created_at: createdAt,
     source: f["来源"] || "",
+    cover_image: f["封面图"] || "",
   };
 }
