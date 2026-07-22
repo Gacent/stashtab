@@ -56,6 +56,7 @@ export const api = {
     summary?: string;
     tags?: string[];
     source?: string;
+    cover_image?: string;
   }) {
     return request<Bookmark>("/bookmarks", { method: "POST", body: JSON.stringify(data) });
   },
@@ -77,9 +78,9 @@ export const api = {
     );
   },
 
-  // AI extract - now returns title field too
-  aiExtract(data: { type: "link" | "note"; content: string; title?: string }) {
-    return request<{ title?: string; summary?: string; tags: string[]; type?: string; _fallback?: boolean }>(
+  // AI extract - returns title, summary, tags, and _fallback flag
+  aiExtract(data: { content: string; title?: string }) {
+    return request<{ title?: string; summary?: string; tags: string[]; _fallback?: boolean }>(
       "/ai-extract", { method: "POST", body: JSON.stringify(data) }
     );
   },

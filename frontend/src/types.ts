@@ -7,6 +7,7 @@ export interface Bookmark {
   summary?: string;        // AI摘要
   created_at: string;      // 保存时间
   source?: string;         // 来源
+  cover_image?: string;    // 封面图
 }
 
 export interface BookmarkFilter {

@@ -20,6 +20,7 @@ const tagOptions = ["技术", "AI", "商业", "产品", "设计", "生活", "开
 export default function BookmarkForm({ onSaved, onActiveChange }: { onSaved: () => void; onActiveChange?: (active: boolean) => void }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -39,42 +40,64 @@ export default function BookmarkForm({ onSaved, onActiveChange }: { onSaved: () 
 
     try {
       if (isUrl(text)) {
+        // Step 1: fetch-meta 立即展示预览
         const meta = await api.fetchMeta(text);
-        let tags: string[] = [];
-        let summary = "";
         let title = meta.title || text;
 
-        if (meta.description || meta.content) {
-          try {
-            const ai = await api.aiExtract({ type: "link", content: [meta.description, meta.content].filter(Boolean).join("\n\n"), title: meta.title });
-            if (ai.title) title = ai.title;
-            tags = ai.tags || [];
-            summary = ai.summary || "";
-          } catch {}
-        }
-
+        // 立即显示预览（不等 AI）
         setPreview({
           type: "link", url: text, title,
-          original_title: meta.title !== title ? meta.title : undefined,
+          original_title: meta.title,
           cover_image: meta.cover_image, source: meta.source,
-          tags, summary,
+          content: meta.content,
+          tags: [], summary: "",
         });
-        setSelectedTags(tags);
+        setSelectedTags([]);
+        setLoading(false);  // 释放 loading
+
+        // Step 2: 异步触发 AI 提取
+        if (meta.description || meta.content) {
+          setAiLoading(true);
+          try {
+            const ai = await api.aiExtract({
+              content: [meta.description, meta.content].filter(Boolean).join("\n\n"),
+              title: meta.title
+            });
+            if (ai.title) title = ai.title;
+            const tags = ai.tags || [];
+            const summary = ai.summary || "";
+
+            // 更新预览（保留已有字段，覆盖 AI 结果）
+            setPreview(prev => prev ? {
+              ...prev,
+              title,
+              original_title: prev.original_title !== title ? prev.original_title : undefined,
+              tags,
+              summary,
+            } : prev);
+            setSelectedTags(tags);
+          } catch (err) {
+            console.error("aiExtract error:", err);
+            // AI 失败不影响已有预览
+          } finally {
+            setAiLoading(false);
+          }
+        }
       } else {
         // Notes: skip AI, let user fill title directly
         setPreview({ type: "note", title: "", source: "", content: text, tags: [], summary: "" });
         setSelectedTags([]);
+        setLoading(false);
       }
     } catch (err) {
       console.error("fetchMeta error:", err);
-      // Show a basic preview so user can still save manually
+      // 错误时显示基本预览
       if (isUrl(text)) {
         setPreview({ type: "link", url: text, title: text, source: "", tags: [], summary: "" });
-        setSelectedTags([]);
       } else {
         setPreview({ type: "note", title: "", source: "", content: text, tags: [], summary: "" });
-        setSelectedTags([]);
       }
+      setSelectedTags([]);
     } finally {
       setLoading(false);
     }
@@ -91,6 +114,7 @@ export default function BookmarkForm({ onSaved, onActiveChange }: { onSaved: () 
         summary: preview.summary || preview.content || "",
         tags: selectedTags,
         source: preview.source,
+        cover_image: preview.cover_image || "",
       });
       setInput(""); setPreview(null); setSelectedTags([]); setShowForm(false);
       onSaved();
@@ -222,6 +246,13 @@ export default function BookmarkForm({ onSaved, onActiveChange }: { onSaved: () 
               </p>
             )}
           </div>
+          {aiLoading && (
+            <div className="flex items-center gap-1.5 text-[12px] text-[var(--color-muted)]">
+              <span className="w-2.5 h-2.5 border-2 border-[var(--color-primary)]/30 
+                border-t-[var(--color-primary)] rounded-full animate-spin" />
+              AI 分析中...
+            </div>
+          )}
           <div>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {tagOptions.map((tag) => (
@@ -261,7 +292,7 @@ export default function BookmarkForm({ onSaved, onActiveChange }: { onSaved: () 
           <div className="flex gap-2 pt-2 border-t border-[var(--color-hairline)] dark:border-[var(--color-surface-dark-elevated)]">
             <button 
               onClick={handleSave} 
-              disabled={saving || (preview.type === "note" && !preview.title.trim())}
+              disabled={saving || aiLoading || (preview.type === "note" && !preview.title.trim())}
               className="flex-1 py-2 px-4 
                 bg-[var(--color-primary)] text-[var(--color-on-primary)] 
                 rounded-[var(--radius-md)] text-[14px] font-sans font-medium 
